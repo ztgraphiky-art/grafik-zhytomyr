@@ -610,3 +610,15 @@ body {
     width: 100%;
   }
 }
+
+
+/* Публічний режим перегляду */
+.toolbar {
+  display: none !important;
+}
+
+/* Клітинки графіка — без кнопкового вигляду */
+#scheduleTable td.cell {
+  cursor: default !important;
+  user-select: none;
+}
