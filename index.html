@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>Графік відключень — Житомирська область</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="page"><header class="brand-header">
+    <div class="brand-bulb" aria-hidden="true">ϟ</div>
+    <div class="brand-copy">
+      <h1>ГРАФІК ВІДКЛЮЧЕНЬ</h1>
+      <h2>ЖИТОМИРСЬКА ОБЛАСТЬ</h2>
+      <p>для міста та області</p>
+    </div>
+  </header>
+
+  <section class="urgent-notice" aria-label="Важлива інформація">
+    <h2><span class="warning-mark">!</span><span>УВАГА! <strong>ВАЖЛИВА ІНФОРМАЦІЯ!</strong></span></h2>
+    <p class="notice-intro">На <strong>13.10.2026р.</strong> по команді НЕК “Укренерго” буде застосовано:</p>
+    <div class="notice-periods">
+      <div class="notice-period"><span class="notice-dot green-dot"></span><div><b>з 00:00 до 06:00</b><strong>без обмежень</strong></div></div>
+      <div class="notice-period"><span class="notice-dot yellow-dot"></span><div><b>з 06:00 до 08:00</b><strong>0,5 черги</strong></div></div>
+      <div class="notice-period"><span class="notice-dot orange-dot"></span><div><b>з 08:00 до 16:00</b><strong>1,5 черги</strong></div></div>
+      <div class="notice-period"><span class="notice-dot red-dot"></span><div><b>з 16:00 до 22:00</b><strong>2,0 черги</strong></div></div>
+      <div class="notice-period"><span class="notice-dot purple-dot"></span><div><b>з 22:00 до 24:00</b><strong>1,5 черги</strong></div></div>
+    </div>
+  </section>
+
+  <nav class="date-tabs" aria-label="Вибір дати">
+    <button id="todayBtn" class="date-tab active" type="button">⚡ на сьогодні <span id="todayDate"></span></button>
+    <button id="tomorrowBtn" class="date-tab" type="button">⚡ на завтра <span id="tomorrowDate"></span></button>
+  </nav>
+
+  <p class="updated"><span class="info-icon">ⓘ</span> Дата та час останнього оновлення інформації на графіку: <strong id="updatedAt"></strong></p>
+
+  <div class="toolbar">
+    <label>Дата графіка <input id="datePicker" type="date"></label>
+    <label>Оновлено о <input id="updateTime" type="time" value="20:40"></label>
+    <button id="clearBtn" type="button" class="clear-btn">Очистити графік цієї дати</button>
+  </div>
+
+  <div class="table-wrap">
+    <table id="scheduleTable">
+      <thead>
+        <tr>
+          <th class="queue-head">Черга / підчерга</th>
+          <th class="time-head">Часові<br>проміжки</th>
+        </tr>
+      </thead>
+      <tbody id="scheduleBody"></tbody>
+    </table>
+  </div>
+
+  <section class="legend" aria-label="Умовні позначення">
+    <div class="legend-item"><span class="swatch state-on"></span><span>Світло є</span></div>
+    <div class="legend-item"><span class="swatch state-off">⚡</span><span>Світла немає</span></div>
+    <div class="legend-item"><span class="swatch state-first">⚡</span><span>Світла не буде перші 30 хв.</span></div>
+    <div class="legend-item"><span class="swatch state-second">⚡</span><span>Світла не буде другі 30 хв.</span></div>
+  </section>
+  </main>
+<script src="script.js"></script>
+</body>
+</html>
