@@ -77,3 +77,5 @@ def main():
 
 if name == "main":
     main()
+
+Add notice fetcher
