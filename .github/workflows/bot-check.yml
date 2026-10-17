@@ -1,0 +1,19 @@
+name: Check Telegram bot code
+
+on:
+  push:
+    paths:
+      - "bot.py"
+      - "requirements.txt"
+      - ".github/workflows/bot-check.yml"
+  workflow_dispatch:
+
+jobs:
+  syntax-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m py_compile bot.py
