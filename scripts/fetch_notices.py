@@ -1,3 +1,4 @@
+
 import json
 import re
 from pathlib import Path
@@ -15,9 +16,10 @@ def main():
     response = requests.get(
         SOURCE_URL,
         timeout=30,
-        headers={"User-Agent": "Mozilla/5.0"}
+        headers={"User-Agent": "Mozilla/5.0"},
     )
     response.raise_for_status()
+    response.encoding = response.apparent_encoding
 
     soup = BeautifulSoup(response.text, "html.parser")
     text = re.sub(r"\s+", " ", soup.get_text(" ", strip=True))
@@ -28,6 +30,7 @@ def main():
     ]
 
     start = -1
+
     for marker in markers:
         start = text.find(marker)
         if start != -1:
@@ -36,7 +39,7 @@ def main():
     if start == -1:
         raise RuntimeError(
             "Не знайдено текст оголошення на сторінці. "
-            "Структура сайту могла змінитися."
+            "Можливо, структура сайту змінилася."
         )
 
     end_markers = [
@@ -51,7 +54,11 @@ def main():
     ]
     ends = [pos for pos in ends if pos != -1]
 
-    message = text[start:min(ends)].strip() if ends else text[start:].strip()
+    message = (
+        text[start:min(ends)].strip()
+        if ends
+        else text[start:].strip()
+    )
 
     if len(message) < 20:
         raise RuntimeError("Отримане оголошення неповне.")
@@ -65,9 +72,10 @@ def main():
     }
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+
     OUTPUT.write_text(
         json.dumps(data, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8"
+        encoding="utf-8",
     )
 
     print("Офіційне повідомлення збережено.")
@@ -75,7 +83,5 @@ def main():
     print("Текст:", message)
 
 
-if name == "main":
+if __name__ == "__main__":
     main()
-
-Add notice fetcher
