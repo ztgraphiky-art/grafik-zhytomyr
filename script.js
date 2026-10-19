@@ -1,278 +1,334 @@
-const groups = [
-  "1.1", "1.2",
-  "2.1", "2.2",
-  "3.1", "3.2",
-  "4.1", "4.2",
-  "5.1", "5.2",
-  "6.1", "6.2"
-];
+🇺🇦UA_Dimonkp🇺🇦, [19.10.2026 23:51]
+"use strict";
 
-const states = ["on", "off", "first", "second"];
+const SCHEDULE_URL = "./data/schedule.json";
+const QUEUES = ["1.1", "1.2", "2.1", "2.2", "3.1", "3.2",
+                "4.1", "4.2", "5.1", "5.2", "6.1", "6.2"];
 
-const stateClasses = [
-  "state-on",
-  "state-off",
-  "state-first",
-  "state-second"
-];
+const table = document.getElementById("scheduleTable");
+const tbody = document.getElementById("scheduleBody");
+const todayBtn = document.getElementById("todayBtn");
+const tomorrowBtn = document.getElementById("tomorrowBtn");
+const todayDate = document.getElementById("todayDate");
+const tomorrowDate = document.getElementById("tomorrowDate");
+const datePicker = document.getElementById("datePicker");
+const updateTime = document.getElementById("updateTime");
+const updatedAt = document.getElementById("updatedAt");
 
-const stateLabels = [
-  "Світло є",
-  "Світла немає",
-  "Світла не буде перші 30 хвилин",
-  "Світла не буде другі 30 хвилин"
-];
+let scheduleData = null;
+let schedulesByDate = new Map();
+let selectedDate = "";
 
-const hours = Array.from({ length: 24 }, (_, i) =>
-  `${String(i).padStart(2, "0")}-${String((i + 1) % 24).padStart(2, "0")`}
-);
+function kyivDate(offsetDays = 0) {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Kyiv",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(now);
 
-let selectedDate = getLocalDate(new Date());
+  const values = Object.fromEntries(parts.map(p => [p.type, p.value]));
+  const date = new Date(Date.UTC(
+    Number(values.year),
+    Number(values.month) - 1,
+    Number(values.day) + offsetDays
+  ));
 
-function $(selector) {
-  return document.querySelector(selector);
+  return [
+    date.getUTCFullYear(),
+    String(date.getUTCMonth() + 1).padStart(2, "0"),
+    String(date.getUTCDate()).padStart(2, "0")
+  ].join("-");
 }
 
-// Форматування локальної дати
-function getLocalDate(date) {
-  const local = new Date(
-    date.getTime() - date.getTimezoneOffset() * 60000
-  );
-
-  return local.toISOString().slice(0, 10);
+function toISODate(dateText) {
+  const match = String(dateText || "").match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  return match ? ${match[3]}-${match[2]}-${match[1]} : "";
 }
 
-// Додати або відняти дні
-function shiftDate(iso, days) {
-  const date = new Date(`${iso}T12:00:00`);
-
-  date.setDate(date.getDate() + days);
-
-  return getLocalDate(date);
+function displayDate(isoDate) {
+  if (!isoDate) return "";
+  const [year, month, day] = isoDate.split("-");
+  return ${day}.${month}.${year};
 }
 
-// Формат дати ДД.ММ.РР
-function formatDate(iso) {
-  const [year, month, day] = iso.split("-");
-
-  return `${day}.${month}.${year.slice(2)}`;
+function getBackground(cell) {
+  const style = String(cell?.style || "");
+  const match = style.match(/background(?:-color)?\s*:\s*([^;]+)/i);
+  return match ? match[1].trim().toLowerCase() : "";
 }
 
-// Окреме збереження для кожної дати
-function storageKey(date) {
-  return `zhytomyr-gpv-${date}`;
-}
+function isOutage(cell) {
+  const background = getBackground(cell);
 
-function readData(date) {
-  try {
-    return JSON.parse(
-      localStorage.getItem(storageKey(date)) || "{}"
-    );
-  } catch {
-    return {};
+  // Офіційна таблиця позначає відключення червоним.
+  if (background.includes("#ff3333") ||
+      background.includes("#ff0000") ||
+      background.includes("red")) {
+    return true;
   }
+
+  // Додаткова підтримка інших кольорів, якщо джерело змінить формат.
+  return false;
 }
 
-function saveData(date, data) {
-  localStorage.setItem(
-    storageKey(date),
-    JSON.stringify(data)
-  );
+function getDateBlocks(rows) {
+  const blocks = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i] || [];
+    const dateCell = row.find(cell =>
+      /^\d{2}\.\d{2}\.\d{4}$/.test(String(cell.text || "").trim()) &&
+      Number(cell.colspan || 1) >= 24
+    );
+
+    if (!dateCell) continue;
+
+    const isoDate = toISODate(dateCell.text.trim());
+    if (!isoDate) continue;
+
+    const intervalsRow = rows.slice(i + 1, i + 4).find(candidate =>
+      candidate?.some(cell =>
+        /^\d{2}:\d{2}\s*-\s*\d{2}:\d{2}$/.test(
+          String(cell.text || "").trim()
+        )
+      )
+    );
+
+    if (!intervalsRow) continue;
+
+    const intervals = intervalsRow
+      .map(cell => String(cell.text || "").trim())
+      .filter(text => /^\d{2}:\d{2}\s*-\s*\d{2}:\d{2}$/.test(text));
+
+    const entries = new Map();
+
+    for (let j = i + 1; j < rows.length; j++) {
+      const currentRow = rows[j] || [];
+
+      // Дійшли до наступного блоку дати.
+      const nextDate = currentRow.some(cell =>
+        /^\d{2}\.\d{2}\.\d{4}$/.test(String(cell.text || "").trim()) &&
+        Number(cell.colspan || 1) >= 24
+      );
+      if (nextDate) break;
+
+      const subIndex = currentRow.findIndex(cell =>
+        QUEUES.includes(String(cell.text || "").trim())
+      );
+      if (subIndex < 0) continue;
+
+      const queue = String(currentRow[subIndex].text).trim();
+      const cells = currentRow.slice(subIndex + 2);
+
+      // Потрібні всі 48 півгодинних клітинок.
+      if (cells.length < intervals.length || intervals.length !== 48) {
+        continue;
+      }
+
+      entries.set(queue, cells.slice(0, 48));
+    }
+
+    if (entries.size) {
+      blocks.push({ date: isoDate, intervals, entries });
+    }
+  }
+
+  return blocks;
 }
 
-// Оновлення кнопок дат та часу
-function updateDates() {
-  const today = getLocalDate(new Date());
-  const tomorrow = shiftDate(today, 1);
+🇺🇦UA_Dimonkp🇺🇦, [19.10.2026 23:51]
+function createHeader(intervals) {
+  const thead = table.querySelector("thead");
+  const headerRow = document.createElement("tr");
 
-  $("#todayDate").textContent = formatDate(today);
-  $("#tomorrowDate").textContent = formatDate(tomorrow);
+  const queueHead = document.createElement("th");
+  queueHead.className = "queue-head";
+  queueHead.textContent = "Черга";
+  headerRow.appendChild(queueHead);
 
-  $("#todayBtn").classList.toggle(
-    "active",
-    selectedDate === today
-  );
+  const subHead = document.createElement("th");
+  subHead.className = "time-head";
+  subHead.textContent = "Підчерга";
+  headerRow.appendChild(subHead);
 
-  $("#tomorrowBtn").classList.toggle(
-    "active",
-    selectedDate === tomorrow
-  );
-
-  $("#datePicker").value = selectedDate;
-
-  $("#updatedAt").textContent =
-    `${formatDate(selectedDate)} ${$("#updateTime").value || "—"}`;
-}
-
-// Створення таблиці
-function buildTable() {
-  const head = document.querySelector(
-    "#scheduleTable thead tr"
-  );
-
-  head.innerHTML = 
-  <th class="queue-head">Черга /<br>підчерга</th>
-  <th class="time-head">Часові<br>проміжки</th>
-;
-
-  // Заголовки годин
-  hours.forEach(hour => {
+  for (let hour = 0; hour < 24; hour++) {
     const th = document.createElement("th");
-
     th.className = "hour";
-    th.textContent = hour;
+    th.textContent =
+      ${String(hour).padStart(2, "0")}:00–${String(hour + 1).padStart(2, "0")}:00;
+    th.title = th.textContent;
+    headerRow.appendChild(th);
+  }
 
-    head.appendChild(th);
-  });
+  thead.replaceChildren(headerRow);
+}
 
-  const body = $("#scheduleBody");
-  body.innerHTML = "";
+function getHourState(firstHalf, secondHalf) {
+  if (firstHalf && secondHalf) return "off";
+  if (firstHalf && !secondHalf) return "first";
+  if (!firstHalf && secondHalf) return "second";
+  return "on";
+}
 
-  // 12 підчерг
-  groups.forEach(group => {
+function createCell(queue, hour, cells) {
+  const firstOff = isOutage(cells[hour * 2]);
+  const secondOff = isOutage(cells[hour * 2 + 1]);
+  const state = getHourState(firstOff, secondOff);
+
+  const td = document.createElement("td");
+  td.className = cell state-${state};
+  td.dataset.queue = queue;
+  td.dataset.hour = String(hour);
+  td.title = ${queue}, ${String(hour).padStart(2, "0")}:00–${String(hour + 1).padStart(2, "0")}:00;
+
+  if (state === "off") {
+    td.textContent = "⚡";
+  } else if (state === "first" || state === "second") {
+    td.textContent = "⚡";
+    // Перша половина: зліва. Друга половина: справа.
+    td.style.background = firstOff
+      ? "linear-gradient(90deg, #c9cdd2 0 50%, #fff 50%)"
+      : "linear-gradient(90deg, #fff 0 50%, #c9cdd2 50%)";
+  }
+
+  return td;
+}
+
+function renderSchedule(isoDate) {
+  selectedDate = isoDate;
+
+  const block = schedulesByDate.get(isoDate);
+  tbody.replaceChildren();
+
+  todayBtn.classList.toggle("active", isoDate === kyivDate());
+  tomorrowBtn.classList.toggle("active", isoDate === kyivDate(1));
+
+  if (datePicker) datePicker.value = isoDate;
+
+  if (!block) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 26;
+    td.textContent = У файлі schedule.json немає графіка на ${displayDate(isoDate)}. Очікуємо оновлення офіційних даних.;
+    td.style.padding = "20px";
+    td.style.whiteSpace = "normal";
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+
+    if (updatedAt) updatedAt.textContent = "дані на цю дату відсутні";
+    return;
+  }
+
+  createHeader(block.intervals);
+
+  QUEUES.forEach((queue, index) => {
+    const cells = block.entries.get(queue);
     const tr = document.createElement("tr");
 
-    const th = document.createElement("th");
-    th.scope = "row";
-    th.textContent = group;
+    const queueCell = document.createElement("th");
+    queueCell.textContent = String(Math.floor(index / 2) + 1);
+    tr.appendChild(queueCell);
 
-    tr.appendChild(th);
+    const subCell = document.createElement("th");
+    subCell.textContent = queue;
+    tr.appendChild(subCell);
 
-    const label = document.createElement("td");
-    label.style.fontSize = "12px";
-    label.style.color = "#7b8492";
-    label.textContent = "00–24";
+    if (!cells) {
+      for (let hour = 0; hour < 24; hour++) {
+        const td = document.createElement("td");
+        td.className = "cell state-on";
+        td.title = Немає даних для підчерги ${queue};
+        tr.appendChild(td);
+      }
+    } else {
+      for (let hour = 0; hour < 24; hour++) {
+        tr.appendChild(createCell(queue, hour, cells));
+      }
+    }
 
-    tr.appendChild(label);
+    tbody.appendChild(tr);
+  });
 
-    // 24 клітинки на кожну підчергу
-    hours.forEach((hour, index) => {
-      const td = document.createElement("td");
+  if (updatedAt) {
+    const checkedAt = scheduleData?.checked_at;
+    if (checkedAt) {
+      const date = new Date(checkedAt);
+      updatedAt.textContent = Number.isNaN(date.getTime())
+        ? displayDate(isoDate)
+        : new Intl.DateTimeFormat("uk-UA", {
+            timeZone: "Europe/Kyiv",
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+          }).format(date);
+    } else {
+      updatedAt.textContent = displayDate(isoDate);
+    }
+  }
+}
 
-      td.className = "cell state-on";
-      td.tabIndex = 0;
-      td.setAttribute("role", "button");
+function setupDateButtons() {
+  const today = kyivDate();
+  const tomorrow = kyivDate(1);
 
-      td.dataset.group = group;
-      td.dataset.hour = String(index);
+🇺🇦UA_Dimonkp🇺🇦, [19.10.2026 23:51]
+if (todayDate) todayDate.textContent = displayDate(today);
+  if (tomorrowDate) tomorrowDate.textContent = displayDate(tomorrow);
 
-      td.setAttribute(
-        "aria-label",
-        `${group}, ${hour}, Світло є`
-      );
+  todayBtn?.addEventListener("click", () => renderSchedule(today));
+  tomorrowBtn?.addEventListener("click", () => renderSchedule(tomorrow));
 
-      td.title =
-        `${group} · ${hour} · Світло є — натисни, щоб змінити`;
-
-      td.addEventListener("click", () => {
-        cycleCell(td);
-      });
-
-      td.addEventListener("keydown", event => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          cycleCell(td);
-        }
-      });
-
-      tr.appendChild(td);
-    });
-
-    body.appendChild(tr);
+  datePicker?.addEventListener("change", () => {
+    if (datePicker.value) renderSchedule(datePicker.value);
   });
 }
 
-// Перемикання стану клітинки
-function cycleCell(td) {
-  const data = readData(selectedDate);
+async function init() {
+  try {
+    const response = await fetch(SCHEDULE_URL, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(Не вдалося завантажити JSON: HTTP ${response.status});
+    }
 
-  const key =
-    `${td.dataset.group}-${td.dataset.hour}`;
+    scheduleData = await response.json();
 
-  const current = data[key] ?? 0;
-  const next = (current + 1) % states.length;
+    if (!Array.isArray(scheduleData.rows)) {
+      throw new Error("У schedule.json не знайдено масив rows.");
+    }
 
-  data[key] = next;
+    const blocks = getDateBlocks(scheduleData.rows);
+    schedulesByDate = new Map(blocks.map(block => [block.date, block]));
 
-  saveData(selectedDate, data);
-  applyCell(td, next);
-}
+    setupDateButtons();
 
-// Застосування кольору та позначення
-function applyCell(td, stateIndex) {
-  td.classList.remove(...stateClasses);
-  td.classList.add(stateClasses[stateIndex]);
+    const today = kyivDate();
+    const tomorrow = kyivDate(1);
 
-  td.innerHTML = stateIndex === 0
-    ? ""
-    : '<span class="bolt">ϟ</span>';
+    if (schedulesByDate.has(today)) {
+      renderSchedule(today);
+    } else if (schedulesByDate.has(tomorrow)) {
+      renderSchedule(tomorrow);
+    } else {
+      renderSchedule(today);
+    }
+  } catch (error) {
+    console.error("Помилка завантаження графіка:", error);
+    tbody.replaceChildren();
 
-  const label = stateLabels[stateIndex];
-
-  td.setAttribute(
-    "aria-label",
-    `${td.dataset.group}, ${hours[Number(td.dataset.hour)]}, ${label}`
-  );
-
-  td.title =
-    `${td.dataset.group} · ${hours[Number(td.dataset.hour)]} · ${label} — натисни, щоб змінити`;
-}
-
-// Відображення даних вибраної дати
-function renderDate() {
-  const data = readData(selectedDate);
-
-  document.querySelectorAll("td.cell").forEach(td => {
-    const key =
-      `${td.dataset.group}-${td.dataset.hour}`;
-
-    const state = data[key] ?? 0;
-
-    applyCell(td, state);
-  });
-
-  updateDates();
-}
-
-// Кнопка «Сьогодні»
-$("#todayBtn").addEventListener("click", () => {
-  selectedDate = getLocalDate(new Date());
-  renderDate();
-});
-
-// Кнопка «Завтра»
-$("#tomorrowBtn").addEventListener("click", () => {
-  selectedDate = shiftDate(
-    getLocalDate(new Date()),
-    1
-  );
-
-  renderDate();
-});
-
-// Вибір довільної дати
-$("#datePicker").addEventListener("change", event => {
-  if (event.target.value) {
-    selectedDate = event.target.value;
-    renderDate();
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 26;
+    td.style.padding = "20px";
+    td.style.whiteSpace = "normal";
+    td.textContent =
+      "Не вдалося завантажити графік. Перевір файл data/schedule.json і консоль браузера.";
+    tr.appendChild(td);
+    tbody.appendChild(tr);
   }
-});
+}
 
-// Зміна часу оновлення
-$("#updateTime").addEventListener("change", updateDates);
-
-// Очистити графік лише для вибраної дати
-$("#clearBtn").addEventListener("click", () => {
-  if (
-    confirm(
-      `Очистити всі клітинки графіка на ${formatDate(selectedDate)}?`
-    )
-  ) {
-    localStorage.removeItem(storageKey(selectedDate));
-    renderDate();
-  }
-});
-
-// Запуск
-buildTable();
-renderDate();
+init();
