@@ -26,7 +26,7 @@ function displayDate(isoDate) {
 }
 
 function getCellStyle(cell) {
-  return ${cell?.style || ""} ${cell?.class || ""}.toLowerCase();
+  return ${cell?.style ?? ""} ${cell?.class ?? ""}.toLowerCase();
 }
 
 function isOutage(cell) {
