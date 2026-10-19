@@ -24,7 +24,7 @@ const stateLabels = [
 ];
 
 const hours = Array.from({ length: 24 }, (_, i) =>
-  ${String(i).padStart(2, "0")}-${String((i + 1) % 24).padStart(2, "0")}
+  `${String(i).padStart(2, "0")}-${String((i + 1) % 24).padStart(2, "0")`}
 );
 
 let selectedDate = getLocalDate(new Date());
