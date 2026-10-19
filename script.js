@@ -17,16 +17,16 @@ function cellText(cell) {
 function dateFromText(text) {
   const match = text.match(/\b(\d{2})\.(\d{2})\.(\d{4})\b/);
   if (!match) return "";
-  return ${match[3]}-${match[2]}-${match[1]};
+  return `${match[3]}-${match[2]}-${match[1]}`;
 }
 
 function displayDate(isoDate) {
   const parts = isoDate.split("-");
-  return ${parts[2]}.${parts[1]}.${parts[0]};
+  return `${parts[2]}.${parts[1]}.${parts[0]}`;
 }
 
 function getCellStyle(cell) {
-  return ${cell?.style ?? ""} ${cell?.class ?? ""}.toLowerCase();
+  return `${cell?.style ?? ""} ${cell?.class ?? ""}`.toLowerCase();
 }
 
 function isOutage(cell) {
