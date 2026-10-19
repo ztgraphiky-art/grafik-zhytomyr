@@ -24,7 +24,7 @@ const stateLabels = [
 ];
 
 const hours = Array.from({ length: 24 }, (_, i) =>
-  `${String(i).padStart(2, "0")}-${String((i + 1) % 24).padStart(2, "0")}`
+  ${String(i).padStart(2, "0")}-${String((i + 1) % 24).padStart(2, "0")}
 );
 
 let selectedDate = getLocalDate(new Date());
@@ -110,10 +110,10 @@ function buildTable() {
     "#scheduleTable thead tr"
   );
 
-  head.innerHTML = `
-    <th class="queue-head">Черга /<br>підчерга</th>
-    <th class="time-head">Часові<br>проміжки</th>
-  `;
+  head.innerHTML = 
+  <th class="queue-head">Черга /<br>підчерга</th>
+  <th class="time-head">Часові<br>проміжки</th>
+;
 
   // Заголовки годин
   hours.forEach(hour => {
