@@ -482,12 +482,12 @@ async def poll_sources(context: ContextTypes.DEFAULT_TYPE) -> None:
                     "Перевір актуальну таблицю на офіційному сайті."
                 )
 
-            message = (
-                f"⚡ {label} оновлено на Житомирщині.\n\n"
+           message = (
+                f"⚡ Оновлення графіків відключень у Житомирській області!\n\n"
                 f"{body}\n\n"
-                f"Офіційний графік: {SOURCE_URL}\n"
-                "ℹ️ Це сповіщення про зміну даних, а не підтвердження "
-                "конкретних годин відключення."
+                f"🔗 Актуальний графік: {SOURCE_URL}\n\n"
+                "ℹ️ Повідомлення сформовано автоматично після виявлення змін "
+                "на офіційному сайті."
             )
             await send_change(context, message, key, data if key == "schedule" else None)
 
